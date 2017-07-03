@@ -187,6 +187,14 @@ _require_unionmount_testsuite()
 		_notrun "unionmount testsuite required."
 }
 
+# this test requires support for overlayfs snapshot mount (-t snapshot)
+_require_overlay_snapshot()
+{
+	modprobe overlay >/dev/null 2>&1
+	grep -qw snapshot /proc/filesystems ||
+		_notrun "this test requires overlayfs snapshot support"
+}
+
 # Helper function to check underlying dirs of overlay filesystem
 _overlay_fsck_dirs()
 {

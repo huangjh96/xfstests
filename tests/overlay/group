@@ -72,3 +72,15 @@
 119 auto union rotate nonsamefs
 120 auto union rotate nonsamefs
 129 auto union rotate nonsamefs
+200 auto snapshot
+201 auto snapshot rotate
+202 auto snapshot rotate
+209 auto snapshot rotate
+210 auto snapshot
+211 auto snapshot rotate
+212 auto snapshot rotate
+219 auto snapshot rotate
+220 auto quick snapshot
+221 auto snapshot rotate
+222 auto snapshot rotate
+229 auto snapshot rotate
