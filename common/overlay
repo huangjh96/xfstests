@@ -179,6 +179,14 @@ _require_scratch_overlay_features()
 	_scratch_unmount
 }
 
+# this test requires that the unionmount testsuite is installed under src/
+_require_unionmount_testsuite()
+{
+	UNIONMOUNT_TESTSUITE=src/unionmount-testsuite
+	[ -x "$UNIONMOUNT_TESTSUITE/run" ] || \
+		_notrun "unionmount testsuite required."
+}
+
 # Helper function to check underlying dirs of overlay filesystem
 _overlay_fsck_dirs()
 {

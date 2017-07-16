@@ -66,3 +66,9 @@
 061 auto quick copyup
 090 auto quick copyup redirect nested
 091 auto quick copyup hardlink exportfs nested
+100 auto quick union samefs
+109 auto union rotate samefs
+110 auto quick union nonsamefs
+119 auto union rotate nonsamefs
+120 auto union rotate nonsamefs
+129 auto union rotate nonsamefs
