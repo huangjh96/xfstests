@@ -121,9 +121,6 @@ test_hardlinks()
 
 	# Unlink last lower and drop union nlink to zero (and hopefully not below)
 	rm $SCRATCH_MNT/2
-
-	# Verify that orphan index is cleaned when dropping nlink to zero
-	ls $OVL_BASE_SCRATCH_MNT/$OVL_WORK/index
 }
 
 # Remove all files from previous tests
@@ -137,9 +134,11 @@ _scratch_mount -o index=on
 # Test hardlinks with warm dcache
 DCACHETEMP=warm
 test_hardlinks
+# Verify that orphan index is cleaned when dropping nlink to zero
+_scratch_unmount
+_check_scratch_fs
 
 # Reset to lower hardlinks
-_scratch_unmount
 _scratch_mkfs
 create_hardlinks
 _scratch_mount -o index=on
@@ -147,6 +146,9 @@ _scratch_mount -o index=on
 # Test hardlinks with cold dcache
 DCACHETEMP=cold
 test_hardlinks
+# Verify that orphan index is cleaned when dropping nlink to zero
+_scratch_unmount
+_check_scratch_fs
 
 status=0
 exit
