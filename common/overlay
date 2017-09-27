@@ -151,3 +151,111 @@ _require_scratch_overlay_feature()
 	        _notrun "${FSTYP} feature '${feature}' cannot be enabled on ${SCRATCH_DEV}"
 	_scratch_unmount
 }
+
+# Basic sanity checks for overlayfs
+_overlay_check_dirs()
+{
+	local lowerdir=$1
+	local upperdir=$2
+	local workdir=$3
+	local err=0
+
+	# If 'work' dir exists, it should be empty
+	lswork=`find $workdir/work -mindepth 1 2>/dev/null`
+	if [ -n "$lswork" ]; then
+		_log_err "_overlay_check_dirs: work dir is not clean"
+		echo "*** list $workdir/work ***"	>>$seqres.full
+		ls -l $workdir/work 2>/dev/null		>>$seqres.full
+		echo "*** end list $workdir/work"	>>$seqres.full
+		err=1
+	fi
+
+	# If 'index' dir exists, it should contain valid index names
+	lsindex=`find $workdir/index -mindepth 1 -name '00fb*' -o -print 2>/dev/null`
+	if [ -n "$lsindex" ]; then
+		_log_err "_overlay_check_dirs: index dir is not clean"
+		echo "*** list $workdir/index ***"	>>$seqres.full
+		ls -l $workdir/index 2>/dev/null	>>$seqres.full
+		echo "*** end list $workdir/index"	>>$seqres.full
+		err=1
+	fi
+
+	# Index should not contain entries of file types that do not exist
+	# in niether lower nor upper dir. For example, if upper or lower
+	# do not contain symlinks, index should not contain symlinks entries.
+	# To simplify, we do not check chardevs, which could be upper
+	# whiteouts or whiteout index entries.
+	for t in f d b p l s; do
+		# Skip all checks if index is disabled or empty
+		# for example, in generic scratch tests
+		[ -d $workdir/index ] || break
+		local lsindex=`ls $workdir/index`
+		[ -n "$lsindex" ] || break
+		lsindex=`find $workdir/index -mindepth 1 -type $t`
+		[ -n "$lsindex" ] || continue
+		local lslower=""
+		# For directories, verify that upper dirs must exist
+		# if index entries exist, so disregard lower entries
+		[ $t = d ] || \
+			lslower=`find $lowerdir -mindepth 1 -type $t`
+		local lsupper=""
+		[ -n "$lslower" ] || \
+			lsupper=`find $upperdir -mindepth 1 -type $t`
+		# Index entry found, but no upper nor lower entry?
+		[ -z "$lslower" -a -z "$lsupper" ] || continue
+
+		_log_err "_overlay_check_dirs: index dir has stale entry of type $t"
+		echo "*** list $workdir/index ***"	>>$seqres.full
+		ls -l $workdir/index 2>/dev/null	>>$seqres.full
+		$GETFATTR_PROG --absolute-names -e hex -m overlay -d -h \
+			$workdir/index/* 2>/dev/null	>>$seqres.full
+		echo "*** end list $workdir/index"	>>$seqres.full
+		err=1
+		break
+	done
+
+	if [ $err != 0 ]; then
+		status=1
+		if [ "$iam" != "check" ]; then
+			exit 1
+		fi
+		return 1
+	fi
+
+	return 0
+}
+
+_overlay_check_fs()
+{
+	local base_dev=$3
+	local base_mnt=$4
+
+	[ "$FSTYP" = overlay ] || return 0
+
+	# Base fs needs to be mounted to check overlay dirs
+	local mounted=""
+	[ -z "$base_dev" ] || mounted=`_is_mounted $base_dev`
+	[ -n "$mounted" ] || _overlay_base_mount $*
+
+	# No need to umount overlay for dir checks
+	_overlay_check_dirs $base_mnt/$OVL_LOWER $base_mnt/$OVL_UPPER \
+			    $base_mnt/$OVL_WORK
+	local ret=$?
+
+	[ -n "$mounted" ] || _overlay_base_unmount "$base_dev" "$base_mnt"
+	return $ret
+}
+
+_check_overlay_test_fs()
+{
+	_overlay_check_fs OVL_BASE_TEST_DEV OVL_BASE_TEST_DIR \
+			"$OVL_BASE_TEST_DEV" "$OVL_BASE_TEST_DIR" \
+			$TEST_FS_MOUNT_OPTS $SELINUX_MOUNT_OPTIONS
+}
+
+_check_overlay_scratch_fs()
+{
+	_overlay_check_fs OVL_BASE_SCRATCH_DEV OVL_BASE_SCRATCH_MNT \
+			"$OVL_BASE_SCRATCH_DEV" "$OVL_BASE_SCRATCH_MNT" \
+			$OVL_BASE_MOUNT_OPTIONS $SELINUX_MOUNT_OPTIONS
+}
