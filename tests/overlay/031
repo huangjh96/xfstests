@@ -48,6 +48,7 @@ create_whiteout()
 	local work=$3
 	local file=$4
 
+	echo "create_whiteout $*" >> $seqres.full
 	mkdir -p $lower/testdir
 	touch $lower/testdir/$file
 
@@ -56,6 +57,35 @@ create_whiteout()
 	rm -f $SCRATCH_MNT/testdir/$file
 
 	$UMOUNT_PROG $SCRATCH_MNT
+
+	# Verify that orphan index entry of testfile is cleaned on unlink
+	_overlay_check_dirs $lower $upper $work
+}
+
+mount_dirs()
+{
+	local lower=$1
+	local upper=$2
+	local work=$3
+
+	echo "mount_dirs $*" >> $seqres.full
+	_overlay_scratch_mount_dirs $lower $upper $work
+
+	# Verify that orphan/stale index entries are cleaned on mount
+	_overlay_check_dirs $lower $upper $work
+}
+
+umount_dirs()
+{
+	local lower=$1
+	local upper=$2
+	local work=$3
+
+	echo "umount_dirs $*" >> $seqres.full
+	$UMOUNT_PROG $SCRATCH_MNT
+
+	# Verify that orphan index entries are cleaned on unlink
+	_overlay_check_dirs $lower $upper $work
 }
 
 # get standard environment, filters and checks
@@ -91,7 +121,7 @@ create_whiteout $lowerdir1 $upperdir $workdir $testfile1
 # whiteout will expose.
 rm -rf $lowerdir1/testdir
 
-_overlay_scratch_mount_dirs $lowerdir1 $upperdir $workdir
+mount_dirs $lowerdir1 $upperdir $workdir
 
 ls $SCRATCH_MNT/testdir
 
@@ -101,16 +131,16 @@ rm -rf $SCRATCH_MNT/testdir 2>&1 | _filter_scratch
 
 # umount overlay again, create a new file with the same name and
 # mount overlay again.
-$UMOUNT_PROG $SCRATCH_MNT
+umount_dirs $lowerdir1 $upperdir $workdir
 touch $lowerdir1/testdir
 
-_overlay_scratch_mount_dirs $lowerdir1 $upperdir $workdir
+mount_dirs $lowerdir1 $upperdir $workdir
 
 # try to remove test dir from overlay dir, trigger ovl_remove_and_whiteout,
 # it will not clean up the dir and lead to residue.
 rm -rf $SCRATCH_MNT/testdir 2>&1 | _filter_scratch
 
-$UMOUNT_PROG $SCRATCH_MNT
+umount_dirs $lowerdir1 $upperdir $workdir
 
 _overlay_check_dirs $lowerdir1 $upperdir $workdir
 
@@ -122,12 +152,14 @@ create_whiteout $lowerdir2 $lowerdir1 $workdir1 $testfile1
 
 rm -rf $lowerdir2/testdir
 
-_overlay_scratch_mount_dirs "$lowerdir1:$lowerdir2" $upperdir $workdir
+mount_dirs "$lowerdir1:$lowerdir2" $upperdir $workdir
 
 ls $SCRATCH_MNT/testdir
 rm -rf $SCRATCH_MNT/testdir 2>&1 | _filter_scratch
 
-$UMOUNT_PROG $SCRATCH_MNT
+# _overlay_check_dirs doesn't know how to check multi lower layer, but lowerdir2
+# is completely empty at this point, so it adds no information to the check
+umount_dirs $lowerdir1 $upperdir $workdir
 
 # let lower dir and upper dir both have invalid whiteouts, repeat ls and rmdir again.
 rm -rf $lowerdir1/testdir
@@ -139,10 +171,12 @@ rm -rf $lowerdir1/testdir/$testfile1
 
 create_whiteout $lowerdir2 $lowerdir1 $workdir1 $testfile2
 
-_overlay_scratch_mount_dirs $lowerdir1 $upperdir $workdir
+mount_dirs $lowerdir1 $upperdir $workdir
 
 ls $SCRATCH_MNT/testdir
 rm -rf $SCRATCH_MNT/testdir 2>&1 | _filter_scratch
+
+umount_dirs $lowerdir1 $upperdir $workdir
 
 # success, all done
 echo "Silence is golden"
