@@ -72,9 +72,6 @@ _supported_os Linux
 _require_scratch
 _require_scratch_feature index
 
-# Remove all files from previous tests
-_scratch_mkfs
-
 # Create multiple lowerdirs, upperdirs and workdirs
 lowerdir=$OVL_BASE_SCRATCH_MNT/lower
 lowerdir2=$OVL_BASE_SCRATCH_MNT/lower2
@@ -82,34 +79,38 @@ upperdir=$OVL_BASE_SCRATCH_MNT/upper
 upperdir2=$OVL_BASE_SCRATCH_MNT/upper2
 workdir=$OVL_BASE_SCRATCH_MNT/workdir
 workdir2=$OVL_BASE_SCRATCH_MNT/workdir2
-mkdir -p $lowerdir $lowerdir2 $upperdir $upperdir2 $workdir $workdir2
 
-# Mount overlay with lowerdir, upperdir, workdir
-_overlay_mount_dirs $lowerdir $upperdir $workdir \
-		    overlay $SCRATCH_MNT
+test_exclusive_dir()
+{
+	local devid=$1
+	local mntopt=$2
 
-# Try to mount another overlay with the same upperdir
-# with index=off - expect success
-_overlay_mount_dirs $lowerdir $upperdir $workdir2 \
-		    overlay0 $SCRATCH_MNT -oindex=off && \
-		    $UMOUNT_PROG $SCRATCH_MNT
+	_scratch_mkfs
+	mkdir -p $lowerdir $lowerdir2 $upperdir $upperdir2 $workdir $workdir2
 
-# Try to mount another overlay with the same workdir
-# with index=off - expect success
-_overlay_mount_dirs $lowerdir2 $upperdir2 $workdir \
-		    overlay1 $SCRATCH_MNT -oindex=off && \
-		    $UMOUNT_PROG $SCRATCH_MNT
 
-# Try to mount another overlay with the same upperdir
-# with index=on - expect EBUSY
-_overlay_mount_dirs $lowerdir $upperdir $workdir2 \
-	    overlay2 $SCRATCH_MNT -oindex=on 2>&1 | _filter_busy_mount
+	# Mount first overlay with lowerdir, upperdir, workdir
+	_overlay_mount_dirs $lowerdir $upperdir $workdir \
+			    overlay $SCRATCH_MNT $mntopt
 
-# Try to mount another overlay with the same workdir
-# with index=on - expect EBUSY
-_overlay_mount_dirs $lowerdir2 $upperdir2 $workdir \
-	    overlay3 $SCRATCH_MNT -oindex=on 2>&1 | _filter_busy_mount
+	# Try to mount another overlay with the same upperdir
+	_overlay_mount_dirs $lowerdir $upperdir $workdir2 \
+			    overlay$((2*devid)) $SCRATCH_MNT $mntopt && \
+			    $UMOUNT_PROG $SCRATCH_MNT
 
+	# Try to mount another overlay with the same workdir
+	_overlay_mount_dirs $lowerdir2 $upperdir2 $workdir \
+			    overlay$((2*devid+1)) $SCRATCH_MNT $mntopt && \
+			    $UMOUNT_PROG $SCRATCH_MNT
+
+	$UMOUNT_PROG $SCRATCH_MNT
+}
+
+# Test upperdir/workdir in-use with index=off - expect success
+test_exclusive_dir 0 -oindex=off
+
+# Test upperdir/workdir in-use with index=on - expect EBUSY
+test_exclusive_dir 1 -oindex=on 2>&1 | _filter_busy_mount
 
 # success, all done
 status=0
