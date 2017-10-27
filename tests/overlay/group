@@ -50,3 +50,4 @@
 047 auto quick copyup hardlink
 048 auto quick copyup hardlink
 050 auto quick copyup hardlink exportfs
+051 auto quick copyup hardlink exportfs nonsamefs
