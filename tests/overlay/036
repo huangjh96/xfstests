@@ -103,7 +103,10 @@ test_exclusive_dir()
 			    overlay$((2*devid+1)) $SCRATCH_MNT $mntopt && \
 			    $UMOUNT_PROG $SCRATCH_MNT
 
+	# Unmount first overlay and check it was not corrupted
+	# by the other mounts trying to use first mount private dirs
 	$UMOUNT_PROG $SCRATCH_MNT
+	_overlay_check_dirs $lowerdir $upperdir $workdir
 }
 
 # Test upperdir/workdir in-use with index=off - expect success
